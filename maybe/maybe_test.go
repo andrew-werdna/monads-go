@@ -1,6 +1,9 @@
 package maybe
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestMaybe(t *testing.T) {
 	const testName1 = "test name"
@@ -16,7 +19,7 @@ func TestMaybe(t *testing.T) {
 			Age:  38,
 		}
 		m1 := Just[customType1, customType1]{
-			Start: &myCustomStruct1,
+			start: &myCustomStruct1,
 		}
 
 		m2 := m1.Map(func(t *customType1) *customType1 {
@@ -45,7 +48,7 @@ func TestMaybe(t *testing.T) {
 		}
 
 		m1 := Just[customType1, customType1]{
-			Start: &myCustomStruct1,
+			start: &myCustomStruct1,
 		}
 
 		// m2 has a nil pointer in it
@@ -84,7 +87,7 @@ func TestMaybe(t *testing.T) {
 		}
 
 		m1 := Just[t1, t2]{
-			Start: &vt1,
+			start: &vt1,
 		}
 
 		m2 := m1.Map(func(t *t1) *t2 {
@@ -113,11 +116,11 @@ func TestMaybe(t *testing.T) {
 				t.Errorf("type should have switched from customType1 to customType2\n")
 			}
 
-			if j2.Next == nil {
+			if j2.next == nil {
 				t.Fatalf("j2.Next should not equal nil")
 			}
 			wantLen := len(testName1)
-			got := j2.Next.NameLength
+			got := j2.next.NameLength
 			if wantLen != got {
 				t.Errorf("expected NameLength to equal %v, but got %v", wantLen, got)
 			}
@@ -139,7 +142,7 @@ func TestMaybe(t *testing.T) {
 		}
 
 		m1 := Just[customType1, customType2]{
-			Start: &vt1,
+			start: &vt1,
 		}
 
 		// m2 has a nil pointer in it
@@ -173,7 +176,7 @@ func TestMaybe(t *testing.T) {
 			Age:  38,
 		}
 		m1 := Just[customType1, customType1]{
-			Start: &myCustomStruct1,
+			start: &myCustomStruct1,
 		}
 
 		m2 := m1.Map(func(t *customType1) *customType1 {
@@ -223,7 +226,7 @@ func TestMaybe(t *testing.T) {
 		}
 
 		m1 := Just[customType1, customType2]{
-			Start: &vt1,
+			start: &vt1,
 		}
 
 		m2 := m1.Map(func(t *customType1) *customType2 {
@@ -244,11 +247,11 @@ func TestMaybe(t *testing.T) {
 				t.Errorf("type should have switched from customType1 to customType2\n")
 			}
 
-			if j2.Next == nil {
+			if j2.next == nil {
 				t.Fatalf("j2.Next should not equal nil")
 			}
 			wantLen := len(testName1)
-			got := j2.Next.NameLength
+			got := j2.next.NameLength
 			if wantLen != got {
 				t.Errorf("expected NameLength to equal %v, but got %v", wantLen, got)
 			}
@@ -274,5 +277,147 @@ func TestMaybe(t *testing.T) {
 	t.Run("should be able to map N times using FromMaybeToAnother", func(t *testing.T) {
 		// in progress
 		t.SkipNow()
+	})
+}
+
+func TestOf(t *testing.T) {
+	t.Run("nil pointer should return Nothing", func(t *testing.T) {
+		var n *int
+		m1 := Of[int, int](n)
+
+		if n1, ok := m1.(Nothing[int, int]); !ok {
+			t.Errorf("expected Nothing but got %T", n1)
+		}
+
+		if j1, ok := m1.(Just[int, int]); ok {
+			t.Errorf("expected Nothing but got %T", j1)
+		}
+	})
+
+	t.Run("valid pointer should return Just", func(t *testing.T) {
+		n := 42
+		m1 := Of[int, int](&n)
+
+		if n1, ok := m1.(Nothing[int, int]); ok {
+			t.Errorf("expected Nothing but got %T", n1)
+		}
+
+		if j1, ok := m1.(Just[int, int]); !ok {
+			t.Errorf("expected Nothing but got %T", j1)
+		}
+	})
+}
+
+func TestGet(t *testing.T) {
+	t.Run("if nil pointer should return nothing", func(t *testing.T) {
+		var n *int
+		m1 := Of[int, int](n)
+		value := m1.Get()
+
+		if n1, ok := value.(Nothing[int, int]); !ok {
+			t.Errorf("expected Nothing but got %T", n1)
+		}
+
+		if j1, ok := value.(Just[int, int]); ok {
+			t.Errorf("expected Nothing but got %T", j1)
+		}
+	})
+
+	t.Run("if valid pointer", func(t *testing.T) {
+		t.Run("and not yet mapped", func(t *testing.T) {
+			const num = 42
+			n := num
+			m1 := Of[int, int](&n)
+			v1 := m1.Get()
+
+			if i1, ok := v1.(*int); !ok {
+				t.Errorf("expected *int of value %v, but got type %T", num, i1)
+			}
+
+			if i2, ok := v1.(*int); ok {
+				if *i2 != num {
+					t.Errorf("expected value of %v but got %v", num, *i2)
+				}
+			}
+		})
+
+		t.Run("and HAS been mapped", func(t *testing.T) {
+			const num = 42
+			n := num
+			m1 := Of[int, int](&n).Map(func(i *int) *int {
+				value := *i
+				toRet := value * value
+				return &toRet
+			})
+			v1 := m1.Get()
+
+			if i1, ok := v1.(*int); !ok {
+				t.Errorf("expected *int of value %v, but got type %T", num, i1)
+			}
+
+			if i2, ok := v1.(*int); ok {
+				if *i2 != num*num {
+					t.Errorf("expected value of %v but got %v", num, *i2)
+				}
+			}
+		})
+	})
+}
+
+func TestAs(t *testing.T) {
+	t.Run("should provide sugar over type assertion before mapping", func(t *testing.T) {
+		const num = 42
+		n := num
+		m1 := Of[int, int](&n)
+		v1 := m1.Get()
+
+		value, err := As[int](v1)
+		if err != nil {
+			t.Fatalf("expected nil err but got %v", err)
+		}
+
+		if value == nil {
+			t.Fatalf("expected NON nil pointer but got nil pointer")
+		}
+
+		valueType := fmt.Sprintf("%T", value)
+		wantType := "*int"
+		if valueType != wantType {
+			t.Fatalf("expected %s but instead got %T", wantType, value)
+		}
+
+		if *value != num {
+			t.Errorf("expected %v but got %v", num, *value)
+		}
+	})
+
+	t.Run("should provide sugar over type assertion after mapping", func(t *testing.T) {
+		const num = 42
+		n := num
+		want := n + n
+		m1 := Of[int, int](&n).Map(func(i *int) *int {
+			toRet := *i + *i
+			return &toRet
+		})
+		v1 := m1.Get()
+
+		value, err := As[int](v1)
+		if err != nil {
+			t.Fatalf("expected nil err but got %v", err)
+		}
+
+		if value == nil {
+			t.Fatalf("expected NON nil pointer but got nil pointer")
+		}
+
+		valueType := fmt.Sprintf("%T", value)
+		wantType := "*int"
+		if valueType != wantType {
+			t.Fatalf("expected %s but instead got %T", wantType, value)
+		}
+
+		if *value != want {
+			t.Errorf("expected %v but got %v", want, *value)
+		}
 	})
 }

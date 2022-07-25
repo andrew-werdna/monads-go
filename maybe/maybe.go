@@ -1,16 +1,39 @@
 package maybe
 
+import "errors"
+
 var _ Maybe[int, string] = Just[int, string]{}
 var _ Maybe[int, string] = Nothing[int, string]{}
 
+var (
+	errCouldntAssert = errors.New("unable to type assert as pointer")
+)
+
+func Of[T, U any](value *T) Maybe[T, U] {
+	if value != nil {
+		return Just[T, U]{
+			start: value,
+		}
+	}
+	return Nothing[T, U]{}
+}
+
 type Maybe[T, U any] interface {
 	Map(fn func(*T) *U) Maybe[T, U]
+	Get() any
 }
 
 type Just[T, U any] struct {
-	Start       *T
-	Next        *U
+	start       *T
+	next        *U
 	hasSwitched bool
+}
+
+func (j Just[T, U]) Get() any {
+	if j.hasSwitched {
+		return j.next
+	}
+	return j.start
 }
 
 func (j Just[T, U]) Map(fn func(*T) *U) Maybe[T, U] {
@@ -19,10 +42,10 @@ func (j Just[T, U]) Map(fn func(*T) *U) Maybe[T, U] {
 	case true:
 		return Nothing[T, U]{}
 	}
-	if j.Start != nil {
+	if j.start != nil {
 		return Just[T, U]{
-			Start:       j.Start,
-			Next:        fn(j.Start),
+			start:       j.start,
+			next:        fn(j.start),
 			hasSwitched: true,
 		}
 	}
@@ -30,6 +53,10 @@ func (j Just[T, U]) Map(fn func(*T) *U) Maybe[T, U] {
 }
 
 type Nothing[T, U any] struct{}
+
+func (n Nothing[T, U]) Get() any {
+	return n
+}
 
 func (n Nothing[T, U]) Map(_ func(*T) *U) Maybe[T, U] {
 	return n
@@ -45,7 +72,7 @@ func FromMaybeToAnother[T, U, V any](m Maybe[T, U]) Maybe[U, V] {
 			return Nothing[U, V]{}
 		}
 		next = Just[U, V]{
-			Start: j1.Next,
+			start: j1.next,
 		}
 	case Nothing[T, U]:
 		next = Nothing[U, V]{}
@@ -54,4 +81,12 @@ func FromMaybeToAnother[T, U, V any](m Maybe[T, U]) Maybe[U, V] {
 	}
 
 	return next
+}
+
+func As[T any](value any) (*T, error) {
+	if v1, ok := value.(*T); !ok {
+		return nil, errCouldntAssert
+	} else {
+		return v1, nil
+	}
 }
