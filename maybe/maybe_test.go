@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMaybe(t *testing.T) {
+func TestMaybe_Map(t *testing.T) {
 	const testName1 = "test name"
 
 	t.Run("should be able to Map between same type", func(t *testing.T) {
