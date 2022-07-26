@@ -165,7 +165,7 @@ func TestMaybe(t *testing.T) {
 		}
 	})
 
-	t.Run("doing more than 1 maps without a FromMaybeToAnother should be Nothing", func(t *testing.T) {
+	t.Run("doing more than 1 maps withOUT a FromMaybeToAnother should be Nothing", func(t *testing.T) {
 		type customType1 struct {
 			Name string
 			Age  int
@@ -274,9 +274,212 @@ func TestMaybe(t *testing.T) {
 
 	})
 
-	t.Run("should be able to map N times using FromMaybeToAnother", func(t *testing.T) {
-		// in progress
-		t.SkipNow()
+	t.Run("should be able to map N times using FromMaybeToAnother with valid pointer", func(t *testing.T) {
+		type customType1 struct {
+			Name string
+			Age  int
+		}
+		type customType2 struct {
+			NameLength int
+			Age        int
+		}
+		type customType3 struct {
+			NameLengthPlusAge int
+		}
+		type customType4 struct {
+			NameLengthPlusAgeSq int
+		}
+
+		vt1 := customType1{
+			Name: "test name",
+			Age:  39,
+		}
+
+		m1 := Just[customType1, customType2]{
+			start: &vt1,
+		}
+
+		m2 := m1.Map(func(t *customType1) *customType2 {
+			return &customType2{
+				NameLength: len(t.Name),
+				Age:        t.Age,
+			}
+		})
+
+		if m1 == m2 {
+			t.Errorf("expected different address, got m1: %v, m2: %v\n", m1, m2)
+		}
+
+		if j2, ok := m2.(Just[customType1, customType2]); !ok {
+			t.Errorf("expected ok type assert, instead got: %v\n", ok)
+		} else {
+			if !j2.hasSwitched {
+				t.Errorf("type should have switched from customType1 to customType2\n")
+			}
+
+			if j2.next == nil {
+				t.Fatalf("j2.Next should not equal nil")
+			}
+			wantLen := len(testName1)
+			got := j2.next.NameLength
+			if wantLen != got {
+				t.Errorf("expected NameLength to equal %v, but got %v", wantLen, got)
+			}
+		}
+
+		m3 := FromMaybeToAnother[customType1, customType2, customType3](m2)
+		m4 := m3.Map(func(t *customType2) *customType3 {
+			return &customType3{
+				NameLengthPlusAge: t.NameLength + t.Age,
+			}
+		})
+
+		if j3, ok := m4.(Just[customType2, customType3]); !ok {
+			t.Errorf("expected Just[customType2, customType3] but instead got %T", j3)
+		}
+
+		if n1, ok := m4.(Nothing[customType2, customType3]); ok {
+			t.Errorf("expected Just[customType2, customType3] but instead got %T", n1)
+		}
+
+		m5 := FromMaybeToAnother[customType2, customType3, customType4](m4).
+			Map(func(t *customType3) *customType4 {
+				toRet := &customType4{
+					NameLengthPlusAgeSq: t.NameLengthPlusAge * t.NameLengthPlusAge,
+				}
+				return toRet
+			})
+
+		if j4, ok := m5.(Just[customType3, customType4]); !ok {
+			t.Errorf("expected Just[customType3, customType4] but instead got %T", j4)
+		}
+
+		if n2, ok := m5.(Nothing[customType3, customType4]); ok {
+			t.Errorf("expected Just[customType3, customType4] but instead got %T", n2)
+		}
+	})
+
+	t.Run("should be able to map N times using FromMaybeToAnother with nil pointer", func(t *testing.T) {
+		type customType1 struct {
+			Name string
+			Age  int
+		}
+		type customType2 struct {
+			NameLength int
+			Age        int
+		}
+		type customType3 struct {
+			NameLengthPlusAge int
+		}
+		type customType4 struct {
+			NameLengthPlusAgeSq int
+		}
+
+		var vt1 *customType1
+
+		m1 := Of[customType1, customType2](vt1)
+
+		m2 := m1.Map(func(t *customType1) *customType2 {
+			// should be protected against nil pointer dereference as this func
+			// will never be called
+			return &customType2{
+				NameLength: len(t.Name),
+				Age:        t.Age,
+			}
+		})
+
+		if j2, ok := m2.(Nothing[customType1, customType2]); !ok {
+			t.Errorf("expected Nothing[customType1, customType2], instead got: %T\n", j2)
+		}
+
+		m3 := FromMaybeToAnother[customType1, customType2, customType3](m2)
+		m4 := m3.Map(func(t *customType2) *customType3 {
+			// should be protected against nil pointer dereference as this func
+			// will never be called
+			return &customType3{
+				NameLengthPlusAge: t.NameLength + t.Age,
+			}
+		})
+
+		if n1, ok := m4.(Nothing[customType2, customType3]); !ok {
+			t.Errorf("expected Nothing[customType2, customType3] but instead got %T", n1)
+		}
+
+		m5 := FromMaybeToAnother[customType2, customType3, customType4](m4).
+			Map(func(t *customType3) *customType4 {
+				// should be protected against nil pointer dereference as this func
+				// will never be called
+				toRet := &customType4{
+					NameLengthPlusAgeSq: t.NameLengthPlusAge * t.NameLengthPlusAge,
+				}
+				return toRet
+			})
+
+		if n2, ok := m5.(Nothing[customType3, customType4]); !ok {
+			t.Errorf("expected Nothing[customType3, customType4] but instead got %T", n2)
+		}
+	})
+
+	t.Run("show succinct use of Of, FromMaybeToAnother, and Map with nil pointer", func(t *testing.T) {
+		type customType1 struct {
+			Name string
+			Age  int
+		}
+		type customType2 struct {
+			NameLength int
+			Age        int
+		}
+		type customType3 struct {
+			NameLengthPlusAge int
+		}
+		type customType4 struct {
+			NameLengthPlusAgeSq int
+		}
+
+		var none1 *customType1
+		otherMaybe1 := Of[customType1, customType2](none1).
+			Map(func(c1 *customType1) *customType2 {
+				return &customType2{
+					NameLength: 0,
+					Age:        0,
+				}
+			})
+
+		otherMaybe2 := FromMaybeToAnother[customType1, customType2, customType3](otherMaybe1).
+			Map(func(c2 *customType2) *customType3 {
+				return &customType3{
+					NameLengthPlusAge: c2.NameLength + c2.Age,
+				}
+			})
+
+		otherMaybe3 := FromMaybeToAnother[customType2, customType3, customType4](otherMaybe2).
+			Map(func(c3 *customType3) *customType4 {
+				return nil
+			})
+
+		if on1, ok := otherMaybe1.(Nothing[customType1, customType2]); !ok {
+			t.Errorf("expected Nothing[customType1, customType2], but got %T", on1)
+		}
+
+		if on2, ok := otherMaybe2.(Nothing[customType2, customType3]); !ok {
+			t.Errorf("expected Nothing[customType1, customType2], but got %T", on2)
+		}
+
+		if on3, ok := otherMaybe3.(Nothing[customType3, customType4]); !ok {
+			t.Errorf("expected Nothing[customType1, customType4], but got %T", on3)
+		}
+
+		if j1, ok := otherMaybe1.(Just[customType1, customType2]); ok {
+			t.Errorf("expected Nothing[customType1, customType2], but got %T", j1)
+		}
+
+		if j2, ok := otherMaybe2.(Just[customType2, customType3]); ok {
+			t.Errorf("expected Nothing[customType1, customType2], but got %T", j2)
+		}
+
+		if j3, ok := otherMaybe3.(Just[customType3, customType4]); ok {
+			t.Errorf("expected Nothing[customType1, customType4], but got %T", j3)
+		}
 	})
 }
 
